@@ -31,7 +31,10 @@ OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-nano-9b-v
 OPENROUTER_SITE_URL = os.environ.get("OPENROUTER_SITE_URL", "http://localhost:5173").strip()
 OPENROUTER_APP_NAME = os.environ.get("OPENROUTER_APP_NAME", "FoundersMax Refund Agent").strip()
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_API_KEY = os.environ.get("OPEN_AI_API_KEY", "").strip()
+OPENAI_REALTIME_MODEL = os.environ.get("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1").strip()
+# "marin" and "cedar" are OpenAI's recommended highest-quality Realtime voices.
+OPENAI_VOICE = os.environ.get("OPENAI_VOICE", "marin").strip()
 
 
 def require_openrouter_api_key() -> str:
@@ -41,3 +44,12 @@ def require_openrouter_api_key() -> str:
             "(see backend/.env.example)."
         )
     return OPENROUTER_API_KEY
+
+
+def require_openai_api_key() -> str:
+    if not OPENAI_API_KEY:
+        raise RuntimeError(
+            "OPEN_AI_API_KEY is not set. Add it to backend/.env or the repo-root .env "
+            "(see backend/.env.example) to use the voice pipeline."
+        )
+    return OPENAI_API_KEY

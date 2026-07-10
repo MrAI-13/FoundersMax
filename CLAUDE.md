@@ -26,7 +26,7 @@ The Loom must show:
 - **Backend: Python + FastAPI.** REST endpoint for chat turns, **WebSocket** channel broadcasting reasoning-log events to the admin dashboard in real time, plus the voice pipeline's audio stream handling (see Voice below).
 - **Frontend: React (Vite) + Tailwind.** Three surfaces: customer chat, a mic voice component on the same chat view, and an admin dashboard (live log stream with event types color-coded: thinking, tool call, tool result, retry/error, final decision).
 - **Mock data: plain JSON + Markdown, no real database.** `data/crm.json` (15 profiles with orders, purchase dates, order status, refund history, customer tier) and `data/refund_policy.md` (strict rules: e.g. 30-day window, non-refundable categories, max refunds per year, final-sale items, fraud flags). Keeping it file-based makes the repo instantly runnable — a deliberate, defensible scoping choice for a vertical slice.
-- **Voice (required): OpenAI Realtime API.** Handles STT/TTS over a WebSocket session, layered over the same LangGraph agent backend. Rationale: single-vendor round trip (speech in → speech out) with low latency, and it hands us a text transcript we can feed straight into the existing graph invocation — no separate STT/TTS vendor wiring like a split ElevenLabs setup would need. The agent graph must not depend on the transport — text and voice share one code path; `voice.py` only handles the Realtime API session, audio in/out, and transcript hand-off into the same graph invocation used by the text chat endpoint. Requires `OPENAI_API_KEY` in addition to `OPEN_ROUTER_API_KEY` — this is a direct OpenAI integration, unrelated to the OpenRouter inference path above.
+- **Voice (required): OpenAI Realtime API.** Handles STT/TTS over a WebSocket session (`gpt-realtime-2.1` by default, overridable via `OPENAI_REALTIME_MODEL`), layered over the same LangGraph agent backend. Rationale: single-vendor round trip (speech in → speech out) with low latency, and it hands us a text transcript we can feed straight into the existing graph invocation — no separate STT/TTS vendor wiring like a split ElevenLabs setup would need. The Realtime session is used purely as a speech<->text peripheral, never as a second decision-maker: `turn_detection` is disabled (the browser controls commits via push-to-talk) and the model never auto-generates a conversational reply. `voice.py` commits the user's audio, reads the transcript event, runs it through `agent_graph.run_turn` — the exact function the text chat endpoint uses — then asks the Realtime session to speak the agent's exact reply verbatim via an out-of-band (`conversation: "none"`) response, rather than letting the Realtime model improvise. Text and voice share one code path (`run_turn`) and one session history (`session_store.py`), so a `session_id` carries the same conversation across transports. Requires `OPEN_AI_API_KEY` in addition to `OPEN_ROUTER_API_KEY` — this is a direct OpenAI integration, unrelated to the OpenRouter inference path above. Verified end-to-end against the live Realtime API (not just mocks): synthesized reference speech transcribed correctly, and a full mic-audio → transcript → agent decision → spoken reply round trip through `/ws/voice` produced real, non-silent audio.
 
 ## Agent design
 
@@ -68,12 +68,13 @@ FoundersMax/
 │   │   ├── agent_graph.py    # LangGraph graph definition (agent node + tools node + routing)
 │   │   ├── tools.py          # tool definitions + implementations
 │   │   ├── policy.py         # deterministic refund-eligibility engine
-│   │   ├── logs.py           # reasoning-log event bus / session store
-│   │   ├── voice.py          # STT/TTS pipeline, audio stream handling into agent_graph
+│   │   ├── logs.py           # reasoning-log event bus (admin dashboard stream)
+│   │   ├── session_store.py  # in-memory chat history, shared by text chat + voice
+│   │   ├── voice.py          # OpenAI Realtime STT/TTS pipeline into agent_graph.run_turn
 │   │   └── data/
 │   │       ├── crm.json      # 15 mock customer profiles
 │   │       └── refund_policy.md
-│   ├── tests/                # policy engine + tool + agent-graph unit tests
+│   ├── tests/                # policy, tools, agent-graph, main, and voice unit tests
 │   └── requirements.txt      # fastapi, uvicorn, langgraph, langchain-openai, openai, websockets, pytest
 └── frontend/
     ├── src/

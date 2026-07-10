@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Annotated, Optional, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -178,3 +178,16 @@ def run_turn(session_id: str, messages: list[BaseMessage]) -> list[BaseMessage]:
     message list. Shared by the text chat endpoint and the voice pipeline."""
     result = get_agent_graph().invoke({"messages": messages, "session_id": session_id})
     return result["messages"]
+
+
+def extract_reply_text(messages: list[BaseMessage]) -> str:
+    """Pull the agent's final plain-text reply out of a message list.
+
+    Shared by the text chat endpoint (renders it directly) and the voice
+    pipeline (also hands it to the Realtime session to speak verbatim), so
+    both transports treat "what did the agent decide to say" identically.
+    """
+    for message in reversed(messages):
+        if isinstance(message, AIMessage) and not message.tool_calls and message.content:
+            return message.content if isinstance(message.content, str) else str(message.content)
+    return "Sorry, I wasn't able to generate a response for that."

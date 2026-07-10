@@ -1,7 +1,8 @@
 """FastAPI app: chat REST endpoint, WebSocket reasoning-log stream for the
-admin dashboard, and a dev-only reset endpoint. Voice endpoints land in a
-later pass (see voice.py in the planned layout) and will call the same
-`run_turn` used here, so text and voice share one agent code path.
+admin dashboard, the voice WebSocket, and a dev-only reset endpoint. Text
+chat and voice both go through `agent_graph.run_turn` and share session
+history via `session_store`, so a session_id carries the same conversation
+regardless of transport.
 """
 
 from __future__ import annotations
@@ -12,13 +13,14 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from app import logs
-from app.agent_graph import run_turn
+from app import logs, session_store
+from app.agent_graph import extract_reply_text, run_turn
 from app.tools import store
+from app.voice import handle_voice_session
 
 app = FastAPI(title="FoundersMax Refund Agent")
 
@@ -29,10 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# session_id -> full LangChain message history. In-memory only, matching the
-# rest of the app's "no real database" scope cut.
-_chat_sessions: dict[str, list[BaseMessage]] = {}
 
 
 class ChatRequest(BaseModel):
@@ -45,13 +43,6 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-def _last_reply_text(messages: list[BaseMessage]) -> str:
-    for message in reversed(messages):
-        if isinstance(message, AIMessage) and not message.tool_calls and message.content:
-            return message.content if isinstance(message.content, str) else str(message.content)
-    return "Sorry, I wasn't able to generate a response for that."
-
-
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -60,7 +51,7 @@ def health() -> dict:
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
     session_id = req.session_id or str(uuid.uuid4())
-    history = _chat_sessions.setdefault(session_id, [])
+    history = session_store.get(session_id)
     history.append(HumanMessage(content=req.message))
 
     try:
@@ -71,8 +62,8 @@ async def chat(req: ChatRequest) -> ChatResponse:
             status_code=502, detail="The agent failed to respond. Please try again."
         ) from exc
 
-    _chat_sessions[session_id] = messages
-    return ChatResponse(session_id=session_id, reply=_last_reply_text(messages))
+    session_store.replace(session_id, messages)
+    return ChatResponse(session_id=session_id, reply=extract_reply_text(messages))
 
 
 @app.post("/api/reset")
@@ -80,7 +71,7 @@ def reset() -> dict:
     """Dev convenience: wipe chat history, reasoning logs, and CRM mutations
     so a demo scenario can be re-run from a clean slate without restarting
     the server."""
-    _chat_sessions.clear()
+    session_store.clear()
     logs.bus.clear()
     store.reload()
     return {"status": "reset"}
@@ -107,3 +98,8 @@ async def logs_ws(websocket: WebSocket) -> None:
         pass
     finally:
         unsubscribe()
+
+
+@app.websocket("/ws/voice")
+async def voice_ws(websocket: WebSocket, session_id: Optional[str] = None) -> None:
+    await handle_voice_session(websocket, session_id or str(uuid.uuid4()))

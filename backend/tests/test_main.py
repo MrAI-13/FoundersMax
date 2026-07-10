@@ -2,17 +2,17 @@ import pytest
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
-from app import logs, main
+from app import logs, main, session_store
 from app.tools import store
 
 
 @pytest.fixture(autouse=True)
 def _isolate():
-    main._chat_sessions.clear()
+    session_store.clear()
     logs.bus.clear()
     store.reload()
     yield
-    main._chat_sessions.clear()
+    session_store.clear()
     logs.bus.clear()
     store.reload()
 
@@ -94,7 +94,7 @@ def test_chat_agent_failure_returns_502_and_logs_error(client, monkeypatch):
 def test_reset_clears_sessions_logs_and_crm(client, monkeypatch):
     monkeypatch.setattr(main, "run_turn", _fake_run_turn())
     client.post("/api/chat", json={"message": "hi"})
-    assert main._chat_sessions
+    assert session_store.session_ids()
     assert logs.bus.all_history()
 
     _, order = store.find_order("ORD-1001")
@@ -102,7 +102,7 @@ def test_reset_clears_sessions_logs_and_crm(client, monkeypatch):
 
     resp = client.post("/api/reset")
     assert resp.status_code == 200
-    assert main._chat_sessions == {}
+    assert session_store.session_ids() == []
     assert logs.bus.all_history() == []
 
     _, order_after = store.find_order("ORD-1001")
