@@ -68,6 +68,16 @@ class LogBus:
     def history(self, session_id: str) -> list[dict]:
         return [e.to_dict() for e in self._sessions.get(session_id, [])]
 
+    def all_history(self) -> list[dict]:
+        """Every event across every session, in emission order — used to
+        replay the full transcript to a freshly-connected admin dashboard."""
+        events = [event for session_events in self._sessions.values() for event in session_events]
+        events.sort(key=lambda e: e.seq)
+        return [e.to_dict() for e in events]
+
+    def session_ids(self) -> list[str]:
+        return list(self._sessions.keys())
+
     def clear(self, session_id: str | None = None) -> None:
         if session_id is None:
             self._sessions.clear()
