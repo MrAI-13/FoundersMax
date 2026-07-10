@@ -21,12 +21,12 @@ The Loom must show:
 
 ## Architecture decisions
 
-- **Agent loop: LangGraph.** The agent is built as a LangGraph graph (state machine of nodes: `agent` node calls the model with bound tools, conditional edge routes to a `tools` node on `tool_calls`, loops back to `agent` until the model returns a plain response). Rationale: LangGraph gives us explicit, inspectable graph state and built-in support for interrupts/retries, and each node transition maps cleanly to a reasoning-log event for the admin dashboard. Use `langgraph` + `langchain-anthropic` for the Claude tool-calling integration.
-- **Model:** `claude-haiku-4-5` (latest Haiku; configurable via `ANTHROPIC_MODEL` env var). Chosen for speed/cost given Haiku 4.5 is now near-Sonnet-4 quality on agentic tool use — good fit for a fast, responsive support agent, and keeps the voice round-trip latency low. API key comes from `ANTHROPIC_API_KEY` — never hardcode it.
+- **Agent loop: LangGraph.** The agent is built as a LangGraph graph (state machine of nodes: `agent` node calls the model with bound tools, conditional edge routes to a `tools` node on `tool_calls`, loops back to `agent` until the model returns a plain response). Rationale: LangGraph gives us explicit, inspectable graph state and built-in support for interrupts/retries, and each node transition maps cleanly to a reasoning-log event for the admin dashboard. Use `langgraph` + `langchain-openai` (pointed at OpenRouter — see the inference bullet below) for the tool-calling integration.
+- **Inference: OpenRouter** (one OpenAI-compatible endpoint, called via `langchain-openai`'s `ChatOpenAI` pointed at `https://openrouter.ai/api/v1`), not a direct Anthropic API integration. Model is configurable via the `OPENROUTER_MODEL` env var — default is a free tier model (currently `nvidia/nemotron-nano-9b-v2:free`, chosen after live-testing several free tool-calling-capable models on OpenRouter; the more popular free models like `openai/gpt-oss-120b:free` and `meta-llama/llama-3.3-70b-instruct:free` hit shared rate limits almost immediately). Swapping to a paid model, or to Claude specifically (OpenRouter proxies `anthropic/claude-*` model IDs), is an env var change, not a code change. API key comes from `OPEN_ROUTER_API_KEY` — never hardcode it. `backend/app/config.py` loads `.env` from either `backend/` or the repo root and centralizes these settings.
 - **Backend: Python + FastAPI.** REST endpoint for chat turns, **WebSocket** channel broadcasting reasoning-log events to the admin dashboard in real time, plus the voice pipeline's audio stream handling (see Voice below).
 - **Frontend: React (Vite) + Tailwind.** Three surfaces: customer chat, a mic voice component on the same chat view, and an admin dashboard (live log stream with event types color-coded: thinking, tool call, tool result, retry/error, final decision).
 - **Mock data: plain JSON + Markdown, no real database.** `data/crm.json` (15 profiles with orders, purchase dates, order status, refund history, customer tier) and `data/refund_policy.md` (strict rules: e.g. 30-day window, non-refundable categories, max refunds per year, final-sale items, fraud flags). Keeping it file-based makes the repo instantly runnable — a deliberate, defensible scoping choice for a vertical slice.
-- **Voice (required): OpenAI Realtime API.** Handles STT/TTS over a WebSocket session, layered over the same LangGraph agent backend. Rationale: single-vendor round trip (speech in → speech out) with low latency, and it hands us a text transcript we can feed straight into the existing graph invocation — no separate STT/TTS vendor wiring like a split ElevenLabs setup would need. The agent graph must not depend on the transport — text and voice share one code path; `voice.py` only handles the Realtime API session, audio in/out, and transcript hand-off into the same graph invocation used by the text chat endpoint. Requires `OPENAI_API_KEY` in addition to `ANTHROPIC_API_KEY`.
+- **Voice (required): OpenAI Realtime API.** Handles STT/TTS over a WebSocket session, layered over the same LangGraph agent backend. Rationale: single-vendor round trip (speech in → speech out) with low latency, and it hands us a text transcript we can feed straight into the existing graph invocation — no separate STT/TTS vendor wiring like a split ElevenLabs setup would need. The agent graph must not depend on the transport — text and voice share one code path; `voice.py` only handles the Realtime API session, audio in/out, and transcript hand-off into the same graph invocation used by the text chat endpoint. Requires `OPENAI_API_KEY` in addition to `OPEN_ROUTER_API_KEY` — this is a direct OpenAI integration, unrelated to the OpenRouter inference path above.
 
 ## Agent design
 
@@ -64,6 +64,7 @@ FoundersMax/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py           # FastAPI app, chat endpoint, WS log stream, voice endpoints
+│   │   ├── config.py         # env/config loading (OpenRouter + OpenAI settings)
 │   │   ├── agent_graph.py    # LangGraph graph definition (agent node + tools node + routing)
 │   │   ├── tools.py          # tool definitions + implementations
 │   │   ├── policy.py         # deterministic refund-eligibility engine
@@ -72,8 +73,8 @@ FoundersMax/
 │   │   └── data/
 │   │       ├── crm.json      # 15 mock customer profiles
 │   │       └── refund_policy.md
-│   ├── tests/                # policy engine + tool unit tests
-│   └── requirements.txt      # fastapi, uvicorn, anthropic, langgraph, langchain-anthropic, openai, websockets, pytest
+│   ├── tests/                # policy engine + tool + agent-graph unit tests
+│   └── requirements.txt      # fastapi, uvicorn, langgraph, langchain-openai, openai, websockets, pytest
 └── frontend/
     ├── src/
     │   ├── ChatView.tsx      # customer chat + mic voice component

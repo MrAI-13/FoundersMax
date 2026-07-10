@@ -10,18 +10,17 @@ so there is one code path for the agent regardless of transport.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Annotated, Optional, TypedDict
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from app import logs
+from app import config, logs
 from app.tools import TOOLS
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -40,13 +39,19 @@ How you operate:
 - Always call check_refund_eligibility before promising, denying, or
   processing a refund. Never tell a customer their refund is approved
   before that tool returns decision "approve".
-- When check_refund_eligibility returns "deny", call deny_refund and cite
-  the exact policy_section it returned in your reply to the customer.
-- When check_refund_eligibility returns "approve", call process_refund and
-  give the customer the confirmation ID.
-- When check_refund_eligibility returns "escalate", call escalate_to_human
-  and tell the customer a human will follow up. Do not approve or deny it
-  yourself.
+- check_refund_eligibility never has the final word by itself — you must
+  always follow it with exactly one of process_refund, deny_refund, or
+  escalate_to_human in your very next tool call, matching its decision
+  ("approve" -> process_refund, "deny" -> deny_refund, "escalate" ->
+  escalate_to_human). Do this before writing your reply to the customer;
+  never reply with a decision you have not recorded with one of these
+  three tools.
+- deny_refund requires the exact policy_section and reason returned by
+  check_refund_eligibility — never invent a policy clause, and cite that
+  same section number in your reply to the customer.
+- process_refund gives you a confirmation_id — include it in your reply.
+- escalate_to_human gives you a ticket_id — tell the customer a human will
+  follow up, and do not approve or deny the request yourself.
 - If a customer disputes a denial, pleads, or asks for an exception,
   politely restate the policy citation. Do not grant exceptions — holding
   the line on a denied request is the correct behavior, not a failure.
@@ -64,10 +69,20 @@ class AgentState(TypedDict):
 
 
 def _default_model() -> BaseChatModel:
-    return ChatAnthropic(
-        model=os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5"),
+    """The real, network-calling model: any OpenRouter-hosted model that
+    supports tool calling, selected via OPENROUTER_MODEL (defaults to a
+    free model). Swapping to a paid model, or back to Claude directly via
+    OpenRouter's `anthropic/claude-*` model IDs, is just an env var change."""
+    return ChatOpenAI(
+        model=config.OPENROUTER_MODEL,
+        api_key=config.require_openrouter_api_key(),
+        base_url=config.OPENROUTER_BASE_URL,
         max_retries=3,
         timeout=30,
+        default_headers={
+            "HTTP-Referer": config.OPENROUTER_SITE_URL,
+            "X-Title": config.OPENROUTER_APP_NAME,
+        },
     ).bind_tools(TOOLS)
 
 
