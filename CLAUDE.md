@@ -24,7 +24,9 @@ The Loom must show:
 - **Agent loop: LangGraph.** The agent is built as a LangGraph graph (state machine of nodes: `agent` node calls the model with bound tools, conditional edge routes to a `tools` node on `tool_calls`, loops back to `agent` until the model returns a plain response). Rationale: LangGraph gives us explicit, inspectable graph state and built-in support for interrupts/retries, and each node transition maps cleanly to a reasoning-log event for the admin dashboard. Use `langgraph` + `langchain-openai` (pointed at OpenRouter — see the inference bullet below) for the tool-calling integration.
 - **Inference: OpenRouter** (one OpenAI-compatible endpoint, called via `langchain-openai`'s `ChatOpenAI` pointed at `https://openrouter.ai/api/v1`), not a direct Anthropic API integration. Model is configurable via the `OPENROUTER_MODEL` env var — default is a free tier model (currently `nvidia/nemotron-nano-9b-v2:free`, chosen after live-testing several free tool-calling-capable models on OpenRouter; the more popular free models like `openai/gpt-oss-120b:free` and `meta-llama/llama-3.3-70b-instruct:free` hit shared rate limits almost immediately). Swapping to a paid model, or to Claude specifically (OpenRouter proxies `anthropic/claude-*` model IDs), is an env var change, not a code change. API key comes from `OPEN_ROUTER_API_KEY` — never hardcode it. `backend/app/config.py` loads `.env` from either `backend/` or the repo root and centralizes these settings.
 - **Backend: Python + FastAPI.** REST endpoint for chat turns, **WebSocket** channel broadcasting reasoning-log events to the admin dashboard in real time, plus the voice pipeline's audio stream handling (see Voice below).
-- **Frontend: React (Vite) + Tailwind.** Three surfaces: customer chat, a mic voice component on the same chat view, and an admin dashboard (live log stream with event types color-coded: thinking, tool call, tool result, retry/error, final decision).
+- **Frontend: React (Vite) + Tailwind v4 + react-router-dom.** Three surfaces: customer chat (`/`), a push-to-talk mic component on the same chat view, and an admin dashboard (`/admin`) with a live, filterable, color-coded reasoning-log stream (thinking, tool call, tool result, retry/error, decision, message). Text and voice write into the same client-side transcript and share one backend `session_id` (see `session_store.py`), so a voice turn shows up in the chat history like any other message.
+- **Dark mode by default, toggleable.** `ThemeProvider` sets `data-theme` on `<html>` (default `dark`, persisted to `localStorage`); Tailwind's `dark:` variant is remapped via `@custom-variant dark` to key off that attribute instead of `prefers-color-scheme`, so the toggle actually overrides the OS setting rather than fighting it. An inline script in `index.html` applies the stored theme before first paint to avoid a flash of the wrong theme.
+- **Three.js, used with restraint.** Two `@react-three/fiber` pieces, both lazy-loaded (`React.lazy` + `Suspense`) so the ~880KB three.js/r3f/drei chunk streams in after the main UI, not before: (1) a subtle full-viewport ambient starfield + drifting distorted-blob background (`AmbientBackground.tsx`, `pointer-events-none`, ambient/idle only — never competes with foreground content), and (2) an audio-reactive orb (`VoiceOrb.tsx`, `MeshDistortMaterial`) driven every frame by the mic/playback RMS level from `useVoiceSession` — it visibly pulses and shifts color (violet idle → amber listening → cyan speaking) in sync with the actual audio, not a canned animation. Levels are pushed through a ref, not React state, so the audio-reactivity doesn't trigger re-renders.
 - **Mock data: plain JSON + Markdown, no real database.** `data/crm.json` (15 profiles with orders, purchase dates, order status, refund history, customer tier) and `data/refund_policy.md` (strict rules: e.g. 30-day window, non-refundable categories, max refunds per year, final-sale items, fraud flags). Keeping it file-based makes the repo instantly runnable — a deliberate, defensible scoping choice for a vertical slice.
 - **Voice (required): OpenAI Realtime API.** Handles STT/TTS over a WebSocket session (`gpt-realtime-2.1` by default, overridable via `OPENAI_REALTIME_MODEL`), layered over the same LangGraph agent backend. Rationale: single-vendor round trip (speech in → speech out) with low latency, and it hands us a text transcript we can feed straight into the existing graph invocation — no separate STT/TTS vendor wiring like a split ElevenLabs setup would need. The Realtime session is used purely as a speech<->text peripheral, never as a second decision-maker: `turn_detection` is disabled (the browser controls commits via push-to-talk) and the model never auto-generates a conversational reply. `voice.py` commits the user's audio, reads the transcript event, runs it through `agent_graph.run_turn` — the exact function the text chat endpoint uses — then asks the Realtime session to speak the agent's exact reply verbatim via an out-of-band (`conversation: "none"`) response, rather than letting the Realtime model improvise. Text and voice share one code path (`run_turn`) and one session history (`session_store.py`), so a `session_id` carries the same conversation across transports. Requires `OPEN_AI_API_KEY` in addition to `OPEN_ROUTER_API_KEY` — this is a direct OpenAI integration, unrelated to the OpenRouter inference path above. Verified end-to-end against the live Realtime API (not just mocks): synthesized reference speech transcribed correctly, and a full mic-audio → transcript → agent decision → spoken reply round trip through `/ws/voice` produced real, non-silent audio.
 
@@ -78,18 +80,32 @@ FoundersMax/
 │   └── requirements.txt      # fastapi, uvicorn, langgraph, langchain-openai, openai, websockets, pytest
 └── frontend/
     ├── src/
-    │   ├── ChatView.tsx      # customer chat + mic voice component
-    │   ├── VoiceControl.tsx  # mic capture / playback UI
-    │   ├── AdminDashboard.tsx# live reasoning logs
-    │   └── ...
+    │   ├── App.tsx, main.tsx      # router + ThemeProvider wiring
+    │   ├── components/
+    │   │   ├── ChatView.tsx       # customer chat + mic voice component
+    │   │   ├── VoiceControl.tsx   # push-to-talk button + VoiceOrb
+    │   │   ├── VoiceOrb.tsx       # audio-reactive three.js orb (lazy-loaded)
+    │   │   ├── AmbientBackground.tsx # decorative three.js background (lazy-loaded)
+    │   │   ├── AdminDashboard.tsx # live, filterable reasoning-log stream
+    │   │   ├── LogEventRow.tsx    # one color-coded log row
+    │   │   ├── Layout.tsx         # header, nav, reset-demo, theme toggle
+    │   │   └── ThemeToggle.tsx
+    │   ├── context/ThemeContext.tsx
+    │   └── lib/
+    │       ├── api.ts             # POST /api/chat, /api/reset
+    │       ├── useLogsSocket.ts   # /ws/logs client, auto-reconnect
+    │       ├── useVoiceSession.ts # /ws/voice client: mic capture, PCM encode/decode, playback
+    │       ├── audio.ts           # PCM16/24kHz resample + encode helpers
+    │       ├── types.ts, config.ts
     └── package.json
 ```
 
 ## Commands
 
 ```bash
-# Backend
-cd backend && pip install -r requirements.txt
+# Backend (requires Python 3.12+; see backend/.python-version)
+cd backend && python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload            # http://localhost:8000
 
 # Frontend

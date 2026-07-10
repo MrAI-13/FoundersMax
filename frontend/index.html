@@ -1,10 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>FoundersMax Refund Agent</title>
+    <script>
+      // Set the theme before first paint to avoid a flash of the wrong
+      // theme; ThemeProvider takes over from here once React mounts.
+      try {
+        var stored = localStorage.getItem('foundersmax-theme')
+        document.documentElement.dataset.theme = stored === 'light' ? 'light' : 'dark'
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
