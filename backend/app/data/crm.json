@@ -1,0 +1,347 @@
+{
+  "_meta": {
+    "note": "Mock CRM data for the FoundersMax refund-agent challenge. Dates are anchored near 2026-07-09 (challenge receipt date) so the bundled demo scenarios remain valid through the submission window.",
+    "today_anchor": "2026-07-09"
+  },
+  "customers": [
+    {
+      "customer_id": "CUST-001",
+      "name": "Ava Thompson",
+      "email": "ava.thompson@example.com",
+      "tier": "Gold",
+      "fraud_flag": false,
+      "member_since": "2022-03-14",
+      "orders": [
+        {
+          "order_id": "ORD-1001",
+          "order_date": "2026-06-28",
+          "delivered_date": "2026-07-01",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "Wireless Noise-Cancelling Headphones",
+          "amount": 129.99,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-002",
+      "name": "Marcus Chen",
+      "email": "marcus.chen@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2021-11-02",
+      "orders": [
+        {
+          "order_id": "ORD-1002",
+          "order_date": "2026-05-06",
+          "delivered_date": "2026-05-10",
+          "status": "delivered",
+          "category": "Clothing",
+          "item": "Denim Jacket",
+          "amount": 45.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-003",
+      "name": "Priya Patel",
+      "email": "priya.patel@example.com",
+      "tier": "Platinum",
+      "fraud_flag": false,
+      "member_since": "2019-07-22",
+      "orders": [
+        {
+          "order_id": "ORD-1003",
+          "order_date": "2026-06-01",
+          "delivered_date": "2026-06-05",
+          "status": "delivered",
+          "category": "Home Goods",
+          "item": "Stand Mixer",
+          "amount": 215.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-004",
+      "name": "Diego Ramirez",
+      "email": "diego.ramirez@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2023-01-30",
+      "orders": [
+        {
+          "order_id": "ORD-1004",
+          "order_date": "2026-07-02",
+          "delivered_date": "2026-07-05",
+          "status": "delivered",
+          "category": "Clothing",
+          "item": "Clearance Hoodie",
+          "amount": 32.00,
+          "currency": "USD",
+          "final_sale": true
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-005",
+      "name": "Sarah Kim",
+      "email": "sarah.kim@example.com",
+      "tier": "Silver",
+      "fraud_flag": false,
+      "member_since": "2022-09-18",
+      "orders": [
+        {
+          "order_id": "ORD-1005",
+          "order_date": "2026-06-29",
+          "delivered_date": "2026-07-02",
+          "status": "delivered",
+          "category": "Gift Cards",
+          "item": "$100 Digital Gift Card",
+          "amount": 100.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-006",
+      "name": "James O'Brien",
+      "email": "james.obrien@example.com",
+      "tier": "Gold",
+      "fraud_flag": false,
+      "member_since": "2020-04-11",
+      "orders": [
+        {
+          "order_id": "ORD-1006",
+          "order_date": "2026-06-24",
+          "delivered_date": "2026-06-28",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "Bluetooth Speaker",
+          "amount": 250.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": [
+        { "order_id": "ORD-0891", "date": "2025-09-01", "amount": 80.00 },
+        { "order_id": "ORD-0944", "date": "2025-12-15", "amount": 60.00 },
+        { "order_id": "ORD-0977", "date": "2026-03-10", "amount": 110.00 }
+      ]
+    },
+    {
+      "customer_id": "CUST-007",
+      "name": "Linda Nguyen",
+      "email": "linda.nguyen@example.com",
+      "tier": "Standard",
+      "fraud_flag": true,
+      "member_since": "2024-02-08",
+      "orders": [
+        {
+          "order_id": "ORD-1007",
+          "order_date": "2026-06-27",
+          "delivered_date": "2026-07-01",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "4K Action Camera",
+          "amount": 499.99,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-008",
+      "name": "Robert Garcia",
+      "email": "robert.garcia@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2023-06-19",
+      "orders": [
+        {
+          "order_id": "ORD-1008",
+          "order_date": "2026-07-07",
+          "delivered_date": null,
+          "status": "shipped",
+          "category": "Electronics",
+          "item": "USB-C Charging Hub",
+          "amount": 75.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-009",
+      "name": "Emily Davis",
+      "email": "emily.davis@example.com",
+      "tier": "Gold",
+      "fraud_flag": false,
+      "member_since": "2021-05-27",
+      "orders": [
+        {
+          "order_id": "ORD-1009",
+          "order_date": "2026-06-11",
+          "delivered_date": "2026-06-15",
+          "status": "refunded",
+          "category": "Clothing",
+          "item": "Wool Overcoat",
+          "amount": 60.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": [
+        { "order_id": "ORD-1009", "date": "2026-06-20", "amount": 60.00 }
+      ]
+    },
+    {
+      "customer_id": "CUST-010",
+      "name": "Michael Brown",
+      "email": "michael.brown@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2022-12-01",
+      "orders": [
+        {
+          "order_id": "ORD-1010",
+          "order_date": "2026-07-03",
+          "delivered_date": "2026-07-03",
+          "status": "delivered",
+          "category": "Digital Downloads",
+          "item": "Photo Editing Software License",
+          "amount": 19.99,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-011",
+      "name": "Olivia Martinez",
+      "email": "olivia.martinez@example.com",
+      "tier": "Silver",
+      "fraud_flag": false,
+      "member_since": "2023-08-15",
+      "orders": [
+        {
+          "order_id": "ORD-1011",
+          "order_date": "2026-06-16",
+          "delivered_date": "2026-06-20",
+          "status": "delivered",
+          "category": "Home Goods",
+          "item": "Cast Iron Skillet Set",
+          "amount": 89.50,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-012",
+      "name": "William Lee",
+      "email": "william.lee@example.com",
+      "tier": "Platinum",
+      "fraud_flag": false,
+      "member_since": "2018-10-09",
+      "orders": [
+        {
+          "order_id": "ORD-1012",
+          "order_date": "2026-03-28",
+          "delivered_date": "2026-04-01",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "Mechanical Keyboard",
+          "amount": 340.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-013",
+      "name": "Sophia Wilson",
+      "email": "sophia.wilson@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2022-02-25",
+      "orders": [
+        {
+          "order_id": "ORD-1013",
+          "order_date": "2026-06-21",
+          "delivered_date": "2026-06-25",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "Smart Watch",
+          "amount": 199.99,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": [
+        { "order_id": "ORD-0902", "date": "2025-11-01", "amount": 50.00 },
+        { "order_id": "ORD-0965", "date": "2026-02-15", "amount": 75.00 }
+      ]
+    },
+    {
+      "customer_id": "CUST-014",
+      "name": "Daniel Taylor",
+      "email": "daniel.taylor@example.com",
+      "tier": "Gold",
+      "fraud_flag": false,
+      "member_since": "2020-09-13",
+      "orders": [
+        {
+          "order_id": "ORD-1014",
+          "order_date": "2026-07-01",
+          "delivered_date": null,
+          "status": "cancelled",
+          "category": "Clothing",
+          "item": "Leather Belt",
+          "amount": 54.00,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    },
+    {
+      "customer_id": "CUST-015",
+      "name": "Grace Anderson",
+      "email": "grace.anderson@example.com",
+      "tier": "Standard",
+      "fraud_flag": false,
+      "member_since": "2024-05-04",
+      "orders": [
+        {
+          "order_id": "ORD-1015",
+          "order_date": "2026-07-04",
+          "delivered_date": "2026-07-08",
+          "status": "delivered",
+          "category": "Electronics",
+          "item": "Portable Power Bank",
+          "amount": 59.99,
+          "currency": "USD",
+          "final_sale": false
+        }
+      ],
+      "refund_history": []
+    }
+  ]
+}
