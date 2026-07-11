@@ -46,3 +46,6 @@ Thumbs.db
 .cache/
 coverage/
 *.tsbuildinfo
+
+# --- AI agent working spec, kept local-only ---
+CLAUDE.md
