@@ -30,6 +30,12 @@ export function useLogsSocket(): LogsSocketState {
         try {
           const parsed = JSON.parse(event.data) as LogEvent
           setEvents((prev) => {
+            // The server replays full history on every connect (including
+            // reconnects after a dropped socket — e.g. a backend --reload
+            // restart, or React StrictMode's double effect-invoke in dev).
+            // Without this guard, each reconnect re-appends everything it
+            // already sent, duplicating rows in the admin log.
+            if (prev.some((e) => e.seq === parsed.seq)) return prev
             const next = [...prev, parsed]
             return next.length > MAX_EVENTS ? next.slice(next.length - MAX_EVENTS) : next
           })

@@ -22,7 +22,7 @@ from app.agent_graph import extract_reply_text, run_turn
 from app.tools import store
 from app.voice import handle_voice_session
 
-app = FastAPI(title="FoundersMax Refund Agent")
+app = FastAPI(title="FoundersMax Customer Support")
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +51,8 @@ def health() -> dict:
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
     session_id = req.session_id or str(uuid.uuid4())
+    logs.emit(session_id, "message", {"role": "user", "content": req.message})
+
     history = session_store.get(session_id)
     history.append(HumanMessage(content=req.message))
 

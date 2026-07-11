@@ -7,17 +7,16 @@ function newId(): string {
   return crypto.randomUUID()
 }
 
-export function ChatView({ sessionId }: { sessionId: string }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: newId(),
-      role: 'assistant',
-      content: "Hi! I'm the FoundersMax support agent. Tell me your email and order, and I'll help with your refund.",
-      channel: 'text',
-    },
-  ])
+interface ChatViewProps {
+  sessionId: string
+  messages: ChatMessage[]
+  onMessagesChange: React.Dispatch<React.SetStateAction<ChatMessage[]>>
+  sending: boolean
+  onSendingChange: (sending: boolean) => void
+}
+
+export function ChatView({ sessionId, messages, onMessagesChange, sending, onSendingChange }: ChatViewProps) {
   const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export function ChatView({ sessionId }: { sessionId: string }) {
   }, [messages])
 
   function appendMessage(message: Omit<ChatMessage, 'id'>) {
-    setMessages((prev) => [...prev, { ...message, id: newId() }])
+    onMessagesChange((prev) => [...prev, { ...message, id: newId() }])
   }
 
   async function handleSend() {
@@ -33,7 +32,7 @@ export function ChatView({ sessionId }: { sessionId: string }) {
     if (!text || sending) return
     setDraft('')
     appendMessage({ role: 'user', content: text, channel: 'text' })
-    setSending(true)
+    onSendingChange(true)
     try {
       const res = await sendChatMessage(sessionId, text)
       appendMessage({ role: 'assistant', content: res.reply, channel: 'text' })
@@ -44,7 +43,7 @@ export function ChatView({ sessionId }: { sessionId: string }) {
         channel: 'text',
       })
     } finally {
-      setSending(false)
+      onSendingChange(false)
     }
   }
 
@@ -83,13 +82,7 @@ export function ChatView({ sessionId }: { sessionId: string }) {
         )}
       </div>
 
-      <div className="rounded-b-2xl border border-zinc-200 bg-white/70 px-4 pb-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/60">
-        <VoiceControl
-          sessionId={sessionId}
-          onTranscript={(text) => appendMessage({ role: 'user', content: text, channel: 'voice' })}
-          onReplyText={(text) => appendMessage({ role: 'assistant', content: text.trim(), channel: 'voice' })}
-        />
-
+      <div className="rounded-b-2xl border border-zinc-200 bg-white/70 px-4 py-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/60">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -103,6 +96,11 @@ export function ChatView({ sessionId }: { sessionId: string }) {
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Type your message…"
             className="flex-1 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-violet-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+          />
+          <VoiceControl
+            sessionId={sessionId}
+            onTranscript={(text) => appendMessage({ role: 'user', content: text, channel: 'voice' })}
+            onReplyText={(text) => appendMessage({ role: 'assistant', content: text.trim(), channel: 'voice' })}
           />
           <button
             type="submit"

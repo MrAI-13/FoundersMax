@@ -1,11 +1,6 @@
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useVoiceSession } from '../lib/useVoiceSession'
 import type { VoiceStatus } from '../lib/types'
-
-// Deferred so the three.js/r3f/drei chunk loads alongside (not before) the
-// rest of the chat UI — see Layout.tsx for the same treatment of the
-// ambient background.
-const VoiceOrb = lazy(() => import('./VoiceOrb').then((m) => ({ default: m.VoiceOrb })))
 
 interface VoiceControlProps {
   sessionId: string
@@ -14,21 +9,60 @@ interface VoiceControlProps {
 }
 
 const STATUS_LABEL: Record<VoiceStatus, string> = {
-  idle: 'Hold to talk',
+  idle: 'Tap to talk',
   connecting: 'Connecting…',
-  ready: 'Hold to talk',
-  listening: 'Listening…',
+  ready: 'Tap to talk',
+  listening: 'Listening… tap to send',
   thinking: 'Thinking…',
   speaking: 'Speaking…',
-  error: 'Something went wrong — try again',
+  error: 'Tap to try again',
+}
+
+const BUTTON_COLOR: Record<VoiceStatus, string> = {
+  idle: 'bg-violet-600 hover:bg-violet-500',
+  connecting: 'bg-violet-600',
+  ready: 'bg-violet-600 hover:bg-violet-500',
+  listening: 'bg-amber-500 hover:bg-amber-400',
+  thinking: 'bg-violet-600',
+  speaking: 'bg-cyan-500',
+  error: 'bg-red-500 hover:bg-red-400',
+}
+
+const LABEL_COLOR: Record<VoiceStatus, string> = {
+  idle: 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900',
+  connecting: 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900',
+  ready: 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900',
+  listening: 'bg-amber-600 text-white',
+  thinking: 'bg-violet-600 text-white',
+  speaking: 'bg-cyan-600 text-white',
+  error: 'bg-red-600 text-white',
+}
+
+function MicIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 0 1-14 0M12 18v3" />
+    </svg>
+  )
+}
+
+function StopIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  )
 }
 
 export function VoiceControl({ sessionId, onTranscript, onReplyText }: VoiceControlProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const ringRef = useRef<HTMLSpanElement>(null)
+  const rafRef = useRef<number | null>(null)
 
   const onErrorMessage = useCallback((message: string) => setErrorMessage(message), [])
 
-  const { status, levelsRef, startHold, stopHold, supported } = useVoiceSession({
+  const { status, levelsRef, startRecording, stopRecording, supported } = useVoiceSession({
     sessionId,
     onTranscript: (text) => {
       setErrorMessage(null)
@@ -38,49 +72,87 @@ export function VoiceControl({ sessionId, onTranscript, onReplyText }: VoiceCont
     onErrorMessage,
   })
 
+  // Drive the glow ring straight off the audio-level ref every frame, the
+  // same "ref, not state" contract the rest of the voice pipeline uses, so
+  // the mic button pulses with real mic/playback level without a re-render
+  // per sample — no separate floating orb, just this button reacting.
+  useEffect(() => {
+    const active = status === 'listening' || status === 'speaking'
+    if (!active) {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+      if (ringRef.current) {
+        ringRef.current.style.transform = 'scale(1)'
+        ringRef.current.style.opacity = '0'
+      }
+      return
+    }
+    const tick = () => {
+      const level = status === 'listening' ? levelsRef.current.input : levelsRef.current.output
+      const boosted = Math.min(1, level * 6)
+      if (ringRef.current) {
+        ringRef.current.style.transform = `scale(${1 + boosted * 0.7})`
+        ringRef.current.style.opacity = `${0.2 + boosted * 0.5}`
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+  }, [status, levelsRef])
+
   if (!supported) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-        Voice isn't supported in this browser — microphone access requires a secure context (https or localhost).
-      </div>
+      <span
+        className="text-xs text-amber-600 dark:text-amber-400"
+        title="Voice requires microphone access over https or localhost."
+      >
+        🎤 unavailable
+      </span>
     )
   }
 
-  const busy = status === 'listening' || status === 'thinking' || status === 'speaking'
+  const disabled = status === 'thinking' || status === 'speaking' || status === 'connecting'
+  const label = errorMessage ?? STATUS_LABEL[status]
+
+  function handleClick() {
+    if (status === 'listening') {
+      stopRecording()
+    } else {
+      void startRecording()
+    }
+  }
 
   return (
-    <div className="flex flex-col items-center gap-3 py-2">
-      <Suspense
-        fallback={
-          <div className="h-[168px] w-[168px] animate-pulse rounded-full bg-violet-500/20" />
-        }
+    <div className="relative shrink-0">
+      <div
+        key={label}
+        className={`pointer-events-none absolute -top-9 right-0 animate-[fade-in_0.15s_ease-out] whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium shadow-md ${LABEL_COLOR[status]}`}
       >
-        <VoiceOrb levelsRef={levelsRef} status={status} size={168} />
-      </Suspense>
+        {label}
+      </div>
 
       <button
         type="button"
-        onPointerDown={(e) => {
-          e.preventDefault()
-          void startHold()
-        }}
-        onPointerUp={stopHold}
-        onPointerLeave={() => busy && status === 'listening' && stopHold()}
-        disabled={status === 'thinking' || status === 'speaking' || status === 'connecting'}
-        className={`select-none rounded-full px-6 py-2.5 text-sm font-medium text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-          status === 'listening'
-            ? 'bg-amber-500 shadow-amber-500/30'
-            : status === 'speaking'
-              ? 'bg-cyan-500 shadow-cyan-500/30'
-              : 'bg-violet-600 shadow-violet-600/30 hover:bg-violet-500'
-        }`}
+        aria-label={status === 'listening' ? 'Tap to stop and send' : 'Tap to talk'}
+        aria-pressed={status === 'listening'}
+        onClick={handleClick}
+        disabled={disabled}
+        className={`relative flex h-10 w-10 select-none items-center justify-center rounded-full text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${BUTTON_COLOR[status]}`}
       >
-        {STATUS_LABEL[status]}
+        <span
+          ref={ringRef}
+          className="pointer-events-none absolute inset-0 rounded-full bg-white/40 opacity-0"
+          style={{ transform: 'scale(1)' }}
+        />
+        {status === 'listening' ? (
+          <StopIcon className="relative h-3.5 w-3.5" />
+        ) : (
+          <MicIcon className="relative h-4 w-4" />
+        )}
       </button>
-
-      {errorMessage && (
-        <p className="max-w-xs text-center text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
-      )}
     </div>
   )
 }

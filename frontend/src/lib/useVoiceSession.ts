@@ -19,11 +19,11 @@ interface UseVoiceSessionArgs {
 
 export interface VoiceSession {
   status: VoiceStatus
-  /** Mutated in place every frame — read from a r3f useFrame loop, don't
-   * put this in React state or the orb will cause a re-render per sample. */
+  /** Mutated in place every frame — read imperatively (rAF/useFrame), don't
+   * put this in React state or every sample would trigger a re-render. */
   levelsRef: React.RefObject<AudioLevels>
-  startHold: () => Promise<void>
-  stopHold: () => void
+  startRecording: () => Promise<void>
+  stopRecording: () => void
   supported: boolean
 }
 
@@ -211,20 +211,20 @@ export function useVoiceSession({
     return setup
   }, [])
 
-  // Tracks "the user still wants to be holding" independent of whether the
-  // mic/socket setup has finished — startHold's setup await can easily take
-  // longer than a quick tap-and-release, and without this a release that
-  // lands mid-setup gets silently dropped (holdingRef is still false, so
-  // stopHold's guard no-ops) leaving the UI stuck in "Listening…" forever
-  // once setup finally completes and flips it on.
+  // Tracks "the user still wants to be recording" independent of whether
+  // the mic/socket setup has finished — startRecording's setup await can
+  // easily take longer than a quick tap, and without this a stop that lands
+  // mid-setup gets silently dropped (holdingRef is still false, so
+  // stopRecording's guard no-ops) leaving the UI stuck in "Listening…"
+  // forever once setup finally completes and flips it on.
   const desiredHoldRef = useRef(false)
 
-  const startHold = useCallback(async () => {
+  const startRecording = useCallback(async () => {
     desiredHoldRef.current = true
     try {
       await Promise.all([ensureSocket(), ensureMic()])
       if (!desiredHoldRef.current) {
-        // Released before setup finished — nothing was recorded, so just
+        // Stopped before setup finished — nothing was recorded, so just
         // settle back to ready instead of entering the listening state.
         setStatus('ready')
         return
@@ -239,7 +239,7 @@ export function useVoiceSession({
     }
   }, [ensureSocket, ensureMic])
 
-  const stopHold = useCallback(() => {
+  const stopRecording = useCallback(() => {
     desiredHoldRef.current = false
     if (!holdingRef.current) return
     holdingRef.current = false
@@ -263,5 +263,5 @@ export function useVoiceSession({
     }
   }, [stopLevelLoop])
 
-  return { status, levelsRef, startHold, stopHold, supported }
+  return { status, levelsRef, startRecording, stopRecording, supported }
 }

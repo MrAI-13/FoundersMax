@@ -109,6 +109,20 @@ def test_reset_clears_sessions_logs_and_crm(client, monkeypatch):
     assert order_after["status"] == "delivered"
 
 
+def test_chat_logs_the_users_text_message(client, monkeypatch):
+    """Regression: the text chat endpoint used to only log the assistant's
+    side of the turn, so the admin dashboard never showed what the customer
+    actually typed (voice already logged its transcript in voice.py)."""
+    monkeypatch.setattr(main, "run_turn", _fake_run_turn("Hi there!"))
+
+    resp = client.post("/api/chat", json={"message": "hello from the customer"})
+    session_id = resp.json()["session_id"]
+
+    events = logs.bus.history(session_id)
+    assert events[0]["type"] == "message"
+    assert events[0]["payload"] == {"role": "user", "content": "hello from the customer"}
+
+
 def test_websocket_receives_live_log_events(client, monkeypatch):
     monkeypatch.setattr(main, "run_turn", _fake_run_turn("Streamed reply"))
 
@@ -116,8 +130,8 @@ def test_websocket_receives_live_log_events(client, monkeypatch):
         resp = client.post("/api/chat", json={"message": "hello"})
         assert resp.status_code == 200
 
-        seen_types = [ws.receive_json()["type"], ws.receive_json()["type"]]
-        assert seen_types == ["thinking", "message"]
+        seen_types = [ws.receive_json()["type"], ws.receive_json()["type"], ws.receive_json()["type"]]
+        assert seen_types == ["message", "thinking", "message"]
 
 
 def test_websocket_replays_history_on_connect(client, monkeypatch):
@@ -127,6 +141,10 @@ def test_websocket_replays_history_on_connect(client, monkeypatch):
 
     with client.websocket_connect("/ws/logs") as ws:
         first = ws.receive_json()
-        assert first["type"] == "thinking"
+        assert first["type"] == "message"
+        assert first["payload"]["role"] == "user"
         second = ws.receive_json()
-        assert second["type"] == "message"
+        assert second["type"] == "thinking"
+        third = ws.receive_json()
+        assert third["type"] == "message"
+        assert third["payload"]["role"] == "assistant"

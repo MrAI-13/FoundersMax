@@ -29,7 +29,7 @@ OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-nano-9b-v
 
 # OpenRouter uses these to attribute traffic on https://openrouter.ai/rankings; optional but free.
 OPENROUTER_SITE_URL = os.environ.get("OPENROUTER_SITE_URL", "http://localhost:5173").strip()
-OPENROUTER_APP_NAME = os.environ.get("OPENROUTER_APP_NAME", "FoundersMax Refund Agent").strip()
+OPENROUTER_APP_NAME = os.environ.get("OPENROUTER_APP_NAME", "FoundersMax Customer Support").strip()
 
 OPENAI_API_KEY = os.environ.get("OPEN_AI_API_KEY", "").strip()
 OPENAI_REALTIME_MODEL = os.environ.get("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1").strip()

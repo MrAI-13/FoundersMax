@@ -43,7 +43,9 @@ export function Layout({ children, onReset }: { children: ReactNode; onReset: ()
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-cyan-400 text-sm font-bold text-white">
               F
             </span>
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">FoundersMax Refunds</span>
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              FoundersMax Customer Support
+            </span>
           </div>
 
           <nav className="flex items-center gap-1">
