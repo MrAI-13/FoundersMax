@@ -2,7 +2,7 @@
 
 An AI customer support agent that approves or denies e-commerce refund requests over **text or voice**, using an LLM with tool calling backed by a **deterministic policy engine** — the model never approves or denies a refund from memory or persuasion alone. Built as a take-home vertical slice for the FoundersMax AI Engineer interview.
 
-**Loom walkthrough:** _add link before submitting_
+**Loom walkthrough:** https://www.loom.com/share/6c0f48942edf440eabae8697bffbbdc5
 
 ## What it does
 
